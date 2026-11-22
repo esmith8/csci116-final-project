@@ -38,23 +38,45 @@ def get_data(url_path: str,
 
 
 ### Electricity Sales
+# API Dashboard URL: https://www.eia.gov/opendata/browser/electricity/retail-sales?frequency=quarterly&data=customers;price;revenue;sales;&sortColumn=period;&sortDirection=asc;
 BASE_URL_ELECTRICITY_SALES = "https://api.eia.gov/v2/electricity/retail-sales/data/"
 
 PARAMETERS_ELECTRICITY_SALES = {
     "api_key": API_KEY,
-    "frequency": "monthly",
+    "frequency": "quarterly",
     "data[0]": "customers",
     "data[1]": "price",
     "data[2]": "revenue",
     "data[3]": "sales",
     "sort[0][column]": "period",
-    "sort[0][direction]": "desc",
+    "sort[0][direction]": "asc",
     "offset": 0,
     "length": 5000,
 }
 
-ELECTRICITY_SALES_FILE_NAME = "eia_electricity_retail_sales"
+ELECTRICITY_SALES_FILE_NAME = "../data/eia_electricity_retail_sales_quarterly"
 
 get_data(url_path=BASE_URL_ELECTRICITY_SALES,
          parameters=PARAMETERS_ELECTRICITY_SALES,
          file_name=ELECTRICITY_SALES_FILE_NAME)
+
+### Natural Gas Consumption
+# API Dashboard URL: https://www.eia.gov/opendata/browser/natural-gas/cons/sum?frequency=monthly&data=value;&start=1999-01&sortColumn=period;&sortDirection=asc;
+
+BASE_URL_NATURAL_GAS_CONSUMPTION = "https://api.eia.gov/v2/natural-gas/cons/sum/data/"
+
+PARAMETERS_NATURAL_GAS_CONSUMPTION = {
+    "api_key": API_KEY,
+    "frequency": "monthly",
+    "data[0]": "value",
+    "sort[0][column]": "period",
+    "sort[0][direction]": "asc",
+    "offset": 0,
+    "length": 5000,
+}
+
+NATURAL_GAS_CONSUMPTION_FILE_NAME = "../data/eia_natural_gas_consumption_monthly"
+
+get_data(url_path=BASE_URL_NATURAL_GAS_CONSUMPTION,
+         parameters=PARAMETERS_NATURAL_GAS_CONSUMPTION,
+         file_name=NATURAL_GAS_CONSUMPTION_FILE_NAME)
