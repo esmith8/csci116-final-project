@@ -114,7 +114,9 @@ MSA_CODES_TO_IGNORE_BY_CITY_STATE = {
     ("portland", "me"): [74, 450], # Misassigned to Portland, ME (680 is correct)
     ("new york", "ny"): [235, 412, 573, 580, 601, 603, 610, 687], # Misassigned to New York City, NY (607 is correct)
     ("norfolk", "va"): [722], # Misassigned to Norfolk, VA (611 is correct)
-    ("charleston", "wv"): [18, 88, 195, 196, 337, 363, 557, 642, 859, 860, 933, 934, 936, 946, 947, 952, 972] # Misassigned to Charleston, WV (141 and 147 are correct)
+    ("charleston", "wv"): [18, 88, 195, 196, 337, 363, 557, 642, 859, 860, 933, 934, 936, 946, 947, 952, 972], # Misassigned to Charleston, WV (141 and 147 are correct)
+    ("wilmington", "de"): [228], # 970, 657, and 661 are correct
+    ("columbia", "sc"): [40, 59, 142, 151, 277, 278, 335, 353, 564, 566, 830, 866] # 179 is correct
 }
 
 # Flatten dictionary into a MultiIndex of (address_city, address_state, population_1_msa)
