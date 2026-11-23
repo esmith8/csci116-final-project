@@ -1,4 +1,12 @@
-"""The purpose of this file is to generate a quarterly dataset of """
+""" This file was developed primarily using Gemini Hydrogen 4.0
+The purpose of this file is to generate a quarterly dataset of offenses given a mapping of
+ori9 agency identifiers to metropolitan areas. This is done by performing an API call to the
+FBI NIBRS API and counting the number of a recorded offense type for each agency between
+a specified timeframe (in this case on a per-quarter basis). The total sum of locations
+from each API request is considered the total number of offenses, which I manually cross-checked
+against the 2024 numbers from the existing dataset and confirmed that it results in an accurate
+count of that offense for each agency. Sometimes the number is lower, which I hypothesize is due to
+those offenses being dropped from the record later on, but overall it's the best count I can get."""
 
 import logging
 import time
@@ -11,9 +19,25 @@ import requests
 
 # --- Configuration ---
 CONFIG_PATH = Path("api_keys.toml")
-INPUT_CSV = Path("ori9_metro_mapping_trimmed.csv")
-OFFENSE_CODE = "120"
-OUTPUT_DIR = Path(f"nibrs_output{OFFENSE_CODE}")
+INPUT_CSV = Path("ori9_metro_mapping.csv")
+# OFFENSE_CODE_LIST = ["120", "220", "13A", "13C", "23A", "23B", "23C"]
+# OFFENSE_CODE_LIST = ["220", "23A", "23B", "23C"]
+# OFFENSE_CODE_LIST = ["240", "23D", "23E", "23F"]
+# OFFENSE_CODE_LIST = ["13B", "240", "23G", "23H", "23D", "23E", "23F"]
+OFFENSE_CODE_LIST = ["120", # Robbery
+                     "220", # Burglary
+                     "240", # Motor Vehicle Theft
+                     "13A", # Aggravated Assault
+                     "13B", # Simple Assault
+                     "13C", # Intimidation
+                     "23A", # Pocket-picking
+                     "23B", # Purse-snatching
+                     "23C", # Shoplifting
+                     "23D", # Theft From Building
+                     "23E", # Theft From Coin-Operated Machine or Device
+                     "23F", # Theft From Motor Vehicle
+                     "23G", # Theft of Motor Vehicle Parts or Accessories
+                     "23H"] # All Other Larceny
 
 BASE_URL = "https://api.usa.gov/crime/fbi/cde/nibrs/agency"
 
@@ -25,9 +49,12 @@ DATE_RANGES = [
     ("10-2025", "12-2025"),
 ]
 
+# The original safety buffer (MAX_REQUESTS_PER_CYCLE) was 950 requests per hour, but it became unnecessary as
+# I realized that the posted 1,000 API requests per hour limit that data.gov posted was
+# in place wasn't actually in place.
 SLEEP_MINUTES = 65
-MAX_REQUESTS_PER_CYCLE = 950  # Safety buffer under the 1,000/hour limit
-SAVE_EVERY_N_ROWS = 20
+MAX_REQUESTS_PER_CYCLE = 8500*4*len(OFFENSE_CODE_LIST) 
+SAVE_EVERY_N_ROWS = 1000 # Originally saved every 20 rows, but it was unnecessary.
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,16 +68,17 @@ def load_api_key(config_path: Path) -> str:
     return api_key_dict["API_KEYS"]["NIBRS"]
 
 
-def get_range_dataframe(start_date: str, end_date: str) -> tuple[pd.DataFrame, Path]:
+def get_range_dataframe(start_date: str, end_date: str, offense_code: str) -> tuple[pd.DataFrame, Path]:
     """Load existing progress CSV for a date range, or initialize it from the input CSV."""
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = OUTPUT_DIR / f"ori9_offense{OFFENSE_CODE}_{start_date}_to_{end_date}.csv"
+    output_dir = Path(f"nibrs_output{offense_code}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"ori9_offense{offense_code}_{start_date}_to_{end_date}.csv"
 
     if output_path.exists():
-        df = pd.read_csv(output_path, dtype={"ori9": str, "offense120": "Int64"})
+        df = pd.read_csv(output_path, dtype={"ori9": str, f"offense{offense_code}": "Int64"})
     else:
         df = pd.read_csv(INPUT_CSV, dtype={"ori9": str})
-        df["offense120"] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+        df[f"offense{offense_code}"] = pd.Series(pd.NA, index=df.index, dtype="Int64")
         df.to_csv(output_path, index=False)
 
     return df, output_path
@@ -70,7 +98,8 @@ def fetch_agency_offense(
     start_date: str,
     end_date: str,
     api_key: str,
-    max_retries: int = 3,
+    offense_code: str,
+    max_retries: int = 50,
 ) -> tuple[str, int | None, bool]:
     """
     Query the NIBRS endpoint for a single ORI9 and date range.
@@ -79,7 +108,7 @@ def fetch_agency_offense(
         (status, value, quota_exhausted)
         status: "ok" | "rate_limited" | "invalid" | "error"
     """
-    url = f"{BASE_URL}/{ori9}/{OFFENSE_CODE}"
+    url = f"{BASE_URL}/{ori9}/{offense_code}"
     params = {
         "from": start_date,
         "to": end_date,
@@ -126,7 +155,7 @@ def fetch_agency_offense(
     return "error", None, False
 
 
-def run_batch(api_key: str) -> bool:
+def run_batch(api_key: str, offense_code: str) -> bool:
     """
     Process pending rows across date ranges until either all ranges complete
     or the hourly API rate limit is reached.
@@ -137,8 +166,8 @@ def run_batch(api_key: str) -> bool:
 
     with requests.Session() as session:
         for start_date, end_date in DATE_RANGES:
-            df, output_path = get_range_dataframe(start_date, end_date)
-            pending_indices = df.index[df["offense120"].isna()].tolist()
+            df, output_path = get_range_dataframe(start_date, end_date, offense_code)
+            pending_indices = df.index[df[f"offense{offense_code}"].isna()].tolist()
 
             if not pending_indices:
                 logging.info("Range %s to %s is already complete.", start_date, end_date)
@@ -166,7 +195,7 @@ def run_batch(api_key: str) -> bool:
 
                     ori9 = str(df.at[idx, "ori9"]).strip()
                     status, value, quota_exhausted = fetch_agency_offense(
-                        session, ori9, start_date, end_date, api_key
+                        session, ori9, start_date, end_date, api_key, offense_code
                     )
                     requests_made += 1
 
@@ -180,7 +209,7 @@ def run_batch(api_key: str) -> bool:
                         return False
 
                     if status in ("ok", "invalid") and value is not None:
-                        df.at[idx, "offense120"] = value
+                        df.at[idx, f"offense{offense_code}"] = value
                         unsaved_count += 1
 
                     if unsaved_count >= SAVE_EVERY_N_ROWS:
@@ -213,21 +242,22 @@ def run_batch(api_key: str) -> bool:
 def main() -> None:
     api_key = load_api_key(CONFIG_PATH)
 
-    while True:
-        logging.info("Starting fetch cycle...")
-        all_done = run_batch(api_key)
+    for offense_code in OFFENSE_CODE_LIST:
+        while True:
+            logging.info("Starting fetch cycle...")
+            all_done = run_batch(api_key, offense_code)
 
-        if all_done:
-            logging.info("All date ranges are 100%% complete. Exiting.")
-            break
+            if all_done:
+                logging.info("All date ranges are 100%% complete. Exiting.")
+                break
 
-        next_run = datetime.now() + timedelta(minutes=SLEEP_MINUTES)
-        logging.info(
-            "Sleeping for %d minutes. Next run at %s.",
-            SLEEP_MINUTES,
-            next_run.strftime("%Y-%m-%d %H:%M:%S"),
-        )
-        time.sleep(SLEEP_MINUTES * 60)
+            next_run = datetime.now() + timedelta(minutes=SLEEP_MINUTES)
+            logging.info(
+                "Sleeping for %d minutes. Next run at %s.",
+                SLEEP_MINUTES,
+                next_run.strftime("%Y-%m-%d %H:%M:%S"),
+            )
+            time.sleep(SLEEP_MINUTES * 60)
 
 
 if __name__ == "__main__":
