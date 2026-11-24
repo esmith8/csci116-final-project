@@ -248,7 +248,7 @@ def main() -> None:
             all_done = run_batch(api_key, offense_code)
 
             if all_done:
-                logging.info("All date ranges are 100%% complete. Exiting.")
+                logging.info(r"All date ranges are 100% complete. Exiting.")
                 break
 
             next_run = datetime.now() + timedelta(minutes=SLEEP_MINUTES)
