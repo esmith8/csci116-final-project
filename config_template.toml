@@ -1,0 +1,10 @@
+[API_KEYS]
+NIBRS = "YOUR API KEY"
+FRED = "YOUR API KEY"
+EIA = "YOUR API KEY"
+
+[DATA_PATHS]
+# Known offenses monthly summary file path (2024 data and earlier)
+known_offenses_summary_path = 'data\known_offenses\known_offenses_summary_1996_2024.xlsx'
+# Known offenses quarterly data folder (2025 data and later)
+known_offenses_quarterly_folder = 'data\known_offenses\known_offenses_2025_2026_quarterly'
