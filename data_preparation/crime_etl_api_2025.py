@@ -18,12 +18,12 @@ import pandas as pd
 import requests
 
 # --- Configuration ---
-CONFIG_PATH = Path("config_template.toml")
-INPUT_CSV = Path("ori9_metro_mapping.csv")
-# OFFENSE_CODE_LIST = ["120", "220", "13A", "13C", "23A", "23B", "23C"]
+CONFIG_PATH = Path("../config_template.toml")
+INPUT_CSV = Path("../data_info/ori9_metro_mapping.csv")
+# OFFENSE_CODE_LIST = ["120", "13A", "13C"]
 # OFFENSE_CODE_LIST = ["220", "23A", "23B", "23C"]
 # OFFENSE_CODE_LIST = ["240", "23D", "23E", "23F"]
-# OFFENSE_CODE_LIST = ["13B", "240", "23G", "23H", "23D", "23E", "23F"]
+# OFFENSE_CODE_LIST = ["13B", "23G", "23H"]
 OFFENSE_CODE_LIST = ["120", # Robbery
                      "220", # Burglary
                      "240", # Motor Vehicle Theft
@@ -47,6 +47,9 @@ DATE_RANGES = [
     ("04-2025", "06-2025"),
     ("07-2025", "09-2025"),
     ("10-2025", "12-2025"),
+    ("01-2026", "03-2026"),
+    ("04-2026", "06-2026"),
+    ("07-2026", "09-2026"),
 ]
 
 # The original safety buffer (MAX_REQUESTS_PER_CYCLE) was 950 requests per hour, but it became unnecessary as
@@ -70,7 +73,7 @@ def load_api_key(config_path: Path) -> str:
 
 def get_range_dataframe(start_date: str, end_date: str, offense_code: str) -> tuple[pd.DataFrame, Path]:
     """Load existing progress CSV for a date range, or initialize it from the input CSV."""
-    output_dir = Path(f"nibrs_output{offense_code}")
+    output_dir = Path(f"../data/known_offenses/known_offenses_2025_2026_quarterly/{offense_code}")
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"ori9_offense{offense_code}_{start_date}_to_{end_date}.csv"
 
