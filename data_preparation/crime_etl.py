@@ -1,6 +1,6 @@
 """Gemini Hydrogen 4.0 was used to create the filtering logic used in this file.
 The purpose of this script is to take the offenses known dataset from Jacob Kaplan's
-concatenated files and do the following for data from the years 2000 to 2024:
+concatenated files and do the following for data from the years 1996 to 2024:
 1. Consolidate robbery, burglary, assault, and theft totals to an MSA level for each of the metropolitan areas
     outlined in the ../data_info/metropolitan_areas.csv file into a single .xlsx file.
 2. Create a mapping of ori9 to metropolitan area, which will allow for the api calls to be made in crime_etl_api_2025.py
@@ -11,12 +11,10 @@ from pathlib import Path
 
 import time
 
-import tomllib
-
 import pandas as pd
 from collections import defaultdict
 
-SUMMARY_FILE_NAME = "known_offenses_summary_2000_2024.xlsx"
+SUMMARY_FILE_NAME = "../data/known_offenses/known_offenses_summary_1996_2024.xlsx"
 
 start = time.time()
 
@@ -31,7 +29,7 @@ for _, row in metropolitan_areas_df.iterrows():
 
 METROPOLITAN_AREAS_TO_KEEP = dict(metro_areas)
 
-folder_path = r"C:\Users\e45_u\CSCI 116\csci116-final-project\data\offenses_known_data_2000_2024"
+folder_path = r"../data/offenses_known_data_1996_2024"
 
 # Persistent dictionary mapping ori9 -> (city, state) across all files
 ori9_to_metro: dict[str, tuple[str, str]] = defaultdict(set)
@@ -107,7 +105,7 @@ df = pd.read_excel(SUMMARY_FILE_NAME)
 
 MSA_CODES_TO_IGNORE_BY_CITY_STATE = {
     ("los angeles", "ca"): [549, 619, 740, 777, 783, 786, 864, 983, 990], # All assigned to Los Angeles, CA but not relevant geographically. 478 and 480 are the only two MSAs which represent true LA
-    ("new haven", "ct"): [938], # Misassigned to New Haven, CT (588 is correct)
+    ("new haven", "ct"): [349, 938], # Misassigned to New Haven, CT (588 is correct)
     ("atlanta", "ga"): [51], # Misassigned to Atlanta, GA (50 is correct)
     ("indianapolis", "in"): [39, 100, 101, 102, 162, 163, 165, 186, 241, 257, 289, 312, 414, 416, 417, 483, 533, 561, 828, 883], # Misassigned to Indianapolis, IN (372 is correct)
     ("boston", "ma"): [38, 76, 106, 107, 115, 671, 690, 841, 976], # Misassigned to Boston, MA (105 is correct)
@@ -162,7 +160,7 @@ ori9_metro_df = pl.DataFrame(
     ],
     schema={"ori9": pl.String, "msa": pl.Int64, "city": pl.String, "state": pl.String},
 )
-ori9_metro_df.write_csv("ori9_metro_mapping.csv")
+ori9_metro_df.write_csv("../data_info/ori9_metro_mapping.csv")
 
 # The purpose of this section is to print out how many rows were captured for each city.
 # It was generated using Gemini Hydrogen 4.0
@@ -194,7 +192,7 @@ with pl.Config(tbl_rows=-1, tbl_cols=-1, fmt_str_lengths=200):
 # be used for that particular year. Given the updated MSA_CODES_TO_IGNORE list, this sheet should be empty.
 def export_duplicate_msa_years(
     input_path: str | Path = SUMMARY_FILE_NAME,
-    output_path: str | Path = "duplicate_msa_years_2000_2024.xlsx",
+    output_path: str | Path = "duplicate_msa_years_1996_2024.xlsx",
 ) -> Path:
     df = pd.read_excel(input_path)
 
