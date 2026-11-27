@@ -4,7 +4,31 @@ FRED = "YOUR API KEY"
 EIA = "YOUR API KEY"
 
 [DATA_PATHS]
+# The housing and rental price paths folder contains the files for home and rental prices
+condo_home_path = 'data\housing_and_rental_prices\condo_and_co_op_home_prices_2026_11_22.csv'
+single_family_home_path = 'data\housing_and_rental_prices\single_family_home_prices_2026_11_22.csv'
+single_family_rental_path = 'data\housing_and_rental_prices\single_family_rental_prices_smoothed_seasonally_adjusted_2026_11_22.csv'
+multi_family_rental_path = 'data\housing_and_rental_prices\multi_family_rental_prices_smoothed_seasonally_adjusted_2026_11_22.csv'
+
+labor_and_unemployment_path = 'data\civilian_labor_force_and_unemployment_by_metro_sa11-24-2026.xlsx'
+electricity_sales_path = 'data\eia_electricity_retail_sales_quarterly.xlsx'
+natural_gas_consumption_path = 'data\eia_natural_gas_consumption_monthly.xlsx'
+state_tax_path = 'data\state_tax_historical_data.xlsx'
+traffic_congestion_path = 'data\traffic_congestion_data_2024.xlsx'
+
+nahb_national_components_path = 'data\t3-national-hmi-components-history-202611.xls'
+nahb_regional_hmi_path = 'data\t4-regional-hmi-history-202611.xls'
+
 # Known offenses monthly summary file path (2024 data and earlier)
 known_offenses_summary_path = 'data\known_offenses\known_offenses_summary_1996_2024.xlsx'
+
+[DATA_FOLDERS]
 # Known offenses quarterly data folder (2025 data and later)
 known_offenses_quarterly_folder = 'data\known_offenses\known_offenses_2025_2026_quarterly'
+
+base_data_folder = 'data'
+
+airport_traffic_folder = 'data\airport_traffic_1990_2025'
+google_trends_folder = 'data\google_trends_2004_2026'
+national_park_recreational_visits_folder = 'data\national_park_recreational_visits\csv'
+qcew_industry_folder = 'data\qcew'
