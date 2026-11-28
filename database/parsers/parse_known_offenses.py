@@ -86,7 +86,7 @@ def parse_known_offenses_quarterly(known_offenses_quarterly_folder: str | Path) 
                                                          STATE_COLUMN, 
                                                          YEAR_COLUMN, 
                                                          MONTH_COLUMN], as_index=False)[OFFENSE_TOTAL_COLUMN].sum())
-        total_df.rename(columns = {OFFENSE_TOTAL_COLUMN: total_column_name})
+        total_df.rename(columns = {OFFENSE_TOTAL_COLUMN: total_column_name}, inplace = True)
         return total_df
     
     total_robbery_df = aggregate_total_offense_df(list_of_robbery_dataframes, ROBBERY_COLUMN_NAME)
@@ -135,8 +135,16 @@ def parse_quarterly_offense_file(known_offense_quarterly_path: Path) -> tuple[pd
         month = int(month)
         year = int(year)
 
+    print(f"Parsing File: {known_offense_quarterly_path}")
     # There should only be one sheet in the known offense file, so the default pd.read_excel parameters should be sufficient.
-    offense_data = pd.read_excel(known_offense_quarterly_path)
+    # Used Gemini Hydrogen 4.0 for file extension logic, which will allow for this function to handle both .csv and .xlsx files appropriately.
+    file_ext = Path(known_offense_quarterly_path).suffix.lower()
+    if file_ext == ".csv":
+        offense_data = pd.read_csv(known_offense_quarterly_path)
+    elif file_ext == ".xlsx":
+        offense_data = pd.read_excel(known_offense_quarterly_path, engine="openpyxl")
+    else:
+        raise ValueError(f"Unsupported file format: {known_offense_quarterly_path}")
 
     # Used Gemini Hydrogen 4.0 to find the offense column name, as it changes based on the offense (such as offense13A or offense23C)
     matches = [col for col in offense_data.columns if col.startswith("offense")]
@@ -153,6 +161,6 @@ def parse_quarterly_offense_file(known_offense_quarterly_path: Path) -> tuple[pd
     total_offenses_by_city_and_state[YEAR_COLUMN] = year
     total_offenses_by_city_and_state[MONTH_COLUMN] = month
 
-    total_offenses_by_city_and_state.rename(columns = {offense_col: OFFENSE_TOTAL_COLUMN})
+    total_offenses_by_city_and_state.rename(columns = {offense_col: OFFENSE_TOTAL_COLUMN}, inplace = True)
 
     return total_offenses_by_city_and_state, offense_type
