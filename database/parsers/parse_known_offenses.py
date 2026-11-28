@@ -13,10 +13,12 @@ import re
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
+from utility import convert_daily_monthly_to_quarterly
 
 # Initializing constants which will be used throughout the script
 SUMMARY_CITY_COLUMN = "address_city" # The city column saved for the summary file (2024 and earlier) is different than the newer files.
 SUMMARY_STATE_COLUMN = "address_state" # The state column saved for the summary file (2024 and earlier) is different than the newer files.
+SUMMARY_MSA_COLUMN = "population_1_msa"
 CITY_COLUMN = "city"
 STATE_COLUMN = "state"
 OFFENSE_TYPE_COLUMN = "offense_type"
@@ -28,13 +30,19 @@ ASSAULT_COLUMN_NAME = "actual_assault_total"
 THEFT_COLUMN_NAME = "actual_theft_total"
 YEAR_COLUMN = "year"
 MONTH_COLUMN = "month"
+DATE_COLUMN = "date"
 ROBBERY_CODE = "120"
 BURGLARY_CODE = "220"
 MOTOR_VEHILE_THEFT_CODE = "240"
+# Personally, I was on the fence about whether I should include simple assault or only use aggravated assault, but for my purposes
+# I feel that the rate of people threatening and/or attempting (but failing) to do harm to others is enough to warrant the metric's
+# inclusion on my list. I recognize that manslaughter, murder, and r*pe could have also been added as they are part of the
+# existing dataset, but the quantities of those offenses are very low compared to assault and robbery and I'm not a fan of those words,
+# so I have opted to not include them and will instead use robbery + aggravated assault + simple assault for "violent" crimes.
 ASSAULT_CODE_LIST = [
-    "13A", # Aggravated Assault
-    "13B", # Simple Assault
-    "13C" # Intimidation
+    "13A", # Aggravated Assault, very serious bodily harm is done
+    "13B", # Simple Assault, an attempt was made but the harm isn't nearly as bad.
+    # "13C" # Intimidation (Not included in assault total based on how it was aggregated in lines 15-17 of Jacob Kaplan's source code: https://github.com/jacobkap/crime_data/blob/master/R/utils/offenses_known_utils.R)
 ]
 THEFT_CODE_LIST = [
     "23A", # Pocket-picking
@@ -46,6 +54,62 @@ THEFT_CODE_LIST = [
     "23G", # Theft of Motor Vehicle Parts or Accessories
     "23H" # All Other Larceny
 ]
+# This list contains the final column subset desired from both dataframes
+FINAL_COLUMN_LIST = [
+    CITY_COLUMN,
+    STATE_COLUMN,
+    DATE_COLUMN,
+    ROBBERY_COLUMN_NAME,
+    ASSAULT_COLUMN_NAME,
+    BURGLARY_COLUMN_NAME,
+    THEFT_COLUMN_NAME,
+    MOTOR_VEHICLE_THEFT_COLUMN_NAME
+]
+
+def get_known_offenses_quarterly_df(known_offenses_summary_path: str | Path, known_offenses_quarterly_folder: str | Path) -> pd.DataFrame:
+    quarterly_original = parse_known_offenses_summary(known_offenses_summary_path=known_offenses_summary_path)
+    quarterly_new = parse_known_offenses_quarterly(known_offenses_quarterly_folder=known_offenses_quarterly_folder)
+    
+    known_offenses_quarterly_df = pd.concat([quarterly_original, quarterly_new], ignore_index = True)
+    known_offenses_quarterly_df.to_excel("final_test.xlsx", index = False)
+    return known_offenses_quarterly_df
+
+
+def parse_known_offenses_summary(known_offenses_summary_path: str | Path) -> pd.DataFrame:
+    # There should only be one sheet in the known offenses summary, so the default read_excel parameters should be sufficient.
+    known_offenses_summary_data = pd.read_excel(known_offenses_summary_path)
+
+    # The data in the known offenses summary is already mostly cleaned, the only necessary steps are as follows:
+    # 1. Rename the city columns to simply CITY_COLUMN and STATE_COLUMN
+    known_offenses_summary_data.rename(columns = {SUMMARY_CITY_COLUMN: CITY_COLUMN,
+                                                  SUMMARY_STATE_COLUMN: STATE_COLUMN}, 
+                                       inplace = True)
+    
+    # 2. Convert the year and month columns to a single date column
+    # Used Gemini Hydrogen 4.0 to make this conversion work.
+    # The month column contains the full month's name in lowercase (for example, november)
+    known_offenses_summary_data[DATE_COLUMN] = pd.to_datetime(
+        known_offenses_summary_data[YEAR_COLUMN].astype(str) + "-" + known_offenses_summary_data[MONTH_COLUMN].str.strip(),
+        format="%Y-%B",
+    )
+    known_offenses_summary_data.drop(columns = [YEAR_COLUMN,
+                                                MONTH_COLUMN,
+                                                SUMMARY_MSA_COLUMN], # MSA column is not needed either
+                                     inplace = True)
+    
+    # 3. Convert the frequency from monthly to quarterly.
+    known_offenses_summary_data_quarterly = convert_daily_monthly_to_quarterly(df = known_offenses_summary_data,
+                                                                               aggregation_function = "sum",
+                                                                               date_column_name = DATE_COLUMN,
+                                                                               group_columns = [
+                                                                                   CITY_COLUMN,
+                                                                                   STATE_COLUMN
+                                                                               ])
+    
+    # Only keeping necessary columns
+    known_offenses_summary_data_quarterly = known_offenses_summary_data_quarterly[FINAL_COLUMN_LIST]
+    
+    return known_offenses_summary_data_quarterly
 
 
 def parse_known_offenses_quarterly(known_offenses_quarterly_folder: str | Path) -> pd.DataFrame:
@@ -84,8 +148,9 @@ def parse_known_offenses_quarterly(known_offenses_quarterly_folder: str | Path) 
         concatenated_df = pd.concat(df_list, ignore_index = True)
         total_df = pd.DataFrame(concatenated_df.groupby([CITY_COLUMN, 
                                                          STATE_COLUMN, 
-                                                         YEAR_COLUMN, 
-                                                         MONTH_COLUMN], as_index=False)[OFFENSE_TOTAL_COLUMN].sum())
+                                                        #  YEAR_COLUMN, 
+                                                        #  MONTH_COLUMN,
+                                                         DATE_COLUMN], as_index=False)[OFFENSE_TOTAL_COLUMN].sum())
         total_df.rename(columns = {OFFENSE_TOTAL_COLUMN: total_column_name}, inplace = True)
         return total_df
     
@@ -103,8 +168,9 @@ def parse_known_offenses_quarterly(known_offenses_quarterly_folder: str | Path) 
     ]
     MERGE_KEYS = [CITY_COLUMN,
                   STATE_COLUMN,
-                  YEAR_COLUMN,
-                  MONTH_COLUMN]
+                #   YEAR_COLUMN,
+                #   MONTH_COLUMN,
+                  DATE_COLUMN]
 
     # Used Gemini Hydrogen 4.0 to make it easier to outer merge all of the dataframes at once (instead of multiple uses of merge)
     total_quarterly_offense_df = (
@@ -112,6 +178,9 @@ def parse_known_offenses_quarterly(known_offenses_quarterly_folder: str | Path) 
         .fillna(0)
         .reset_index()
     )
+
+    # Only keeping necessary columns
+    total_quarterly_offense_df = total_quarterly_offense_df[FINAL_COLUMN_LIST]
 
     return total_quarterly_offense_df
 
@@ -158,8 +227,9 @@ def parse_quarterly_offense_file(known_offense_quarterly_path: Path) -> tuple[pd
     total_offenses_by_city_and_state = pd.DataFrame(offense_data.groupby([CITY_COLUMN, STATE_COLUMN], as_index=False)[offense_col].sum())
 
     total_offenses_by_city_and_state[OFFENSE_TYPE_COLUMN] = offense_type
-    total_offenses_by_city_and_state[YEAR_COLUMN] = year
-    total_offenses_by_city_and_state[MONTH_COLUMN] = month
+    # total_offenses_by_city_and_state[YEAR_COLUMN] = year
+    # total_offenses_by_city_and_state[MONTH_COLUMN] = month
+    total_offenses_by_city_and_state[DATE_COLUMN] = quarter_start_date
 
     total_offenses_by_city_and_state.rename(columns = {offense_col: OFFENSE_TOTAL_COLUMN}, inplace = True)
 
