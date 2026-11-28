@@ -28,6 +28,9 @@ BURGLARY_COLUMN_NAME = "actual_burglary_total"
 MOTOR_VEHICLE_THEFT_COLUMN_NAME = "actual_motor_vehicle_theft_total"
 ASSAULT_COLUMN_NAME = "actual_assault_total"
 THEFT_COLUMN_NAME = "actual_theft_total"
+MODIFIED_TOTAL_VIOLENT_CRIME_COLUMN_NAME = "modified_total_violent_crime"
+TOTAL_PROPERTY_CRIME_COLUMN_NAME = "total_property_crime"
+MODIFIED_TOTAL_CRIME_COLUMN_NAME = "modified_total_crime"
 YEAR_COLUMN = "year"
 MONTH_COLUMN = "month"
 DATE_COLUMN = "date"
@@ -54,6 +57,15 @@ THEFT_CODE_LIST = [
     "23G", # Theft of Motor Vehicle Parts or Accessories
     "23H" # All Other Larceny
 ]
+VIOLENT_CRIME_COLUMN_LIST = [
+    ROBBERY_COLUMN_NAME,
+    ASSAULT_COLUMN_NAME
+]
+PROPERTY_CRIME_COLUMN_LIST = [
+    BURGLARY_COLUMN_NAME,
+    THEFT_COLUMN_NAME,
+    MOTOR_VEHICLE_THEFT_COLUMN_NAME
+]
 # This list contains the final column subset desired from both dataframes
 FINAL_COLUMN_LIST = [
     CITY_COLUMN,
@@ -61,9 +73,12 @@ FINAL_COLUMN_LIST = [
     DATE_COLUMN,
     ROBBERY_COLUMN_NAME,
     ASSAULT_COLUMN_NAME,
+    MODIFIED_TOTAL_VIOLENT_CRIME_COLUMN_NAME,
     BURGLARY_COLUMN_NAME,
     THEFT_COLUMN_NAME,
-    MOTOR_VEHICLE_THEFT_COLUMN_NAME
+    MOTOR_VEHICLE_THEFT_COLUMN_NAME,
+    TOTAL_PROPERTY_CRIME_COLUMN_NAME,
+    MODIFIED_TOTAL_CRIME_COLUMN_NAME
 ]
 
 def get_known_offenses_quarterly_df(known_offenses_summary_path: str | Path, known_offenses_quarterly_folder: str | Path) -> pd.DataFrame:
@@ -74,6 +89,16 @@ def get_known_offenses_quarterly_df(known_offenses_summary_path: str | Path, kno
     known_offenses_quarterly_df.to_excel("final_test.xlsx", index = False)
     return known_offenses_quarterly_df
 
+def add_summary_crime_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """This function is meant to add the total crimes, total violent crimes, and total property crimes columns to an input dataframe."""
+    # Used Gemini Hydrogen 4.0 to find the sum function
+    df[TOTAL_PROPERTY_CRIME_COLUMN_NAME] = df[PROPERTY_CRIME_COLUMN_LIST].sum(axis=1)
+    df[MODIFIED_TOTAL_VIOLENT_CRIME_COLUMN_NAME] = df[VIOLENT_CRIME_COLUMN_LIST].sum(axis=1)
+    df[MODIFIED_TOTAL_CRIME_COLUMN_NAME] = df[[TOTAL_PROPERTY_CRIME_COLUMN_NAME, MODIFIED_TOTAL_VIOLENT_CRIME_COLUMN_NAME]].sum(axis=1)
+
+    # Subsetting to only keep necessary columns
+    df = df[FINAL_COLUMN_LIST]
+    return df
 
 def parse_known_offenses_summary(known_offenses_summary_path: str | Path) -> pd.DataFrame:
     # There should only be one sheet in the known offenses summary, so the default read_excel parameters should be sufficient.
@@ -107,7 +132,7 @@ def parse_known_offenses_summary(known_offenses_summary_path: str | Path) -> pd.
                                                                                ])
     
     # Only keeping necessary columns
-    known_offenses_summary_data_quarterly = known_offenses_summary_data_quarterly[FINAL_COLUMN_LIST]
+    known_offenses_summary_data_quarterly = add_summary_crime_columns(known_offenses_summary_data_quarterly)
     
     return known_offenses_summary_data_quarterly
 
@@ -179,8 +204,7 @@ def parse_known_offenses_quarterly(known_offenses_quarterly_folder: str | Path) 
         .reset_index()
     )
 
-    # Only keeping necessary columns
-    total_quarterly_offense_df = total_quarterly_offense_df[FINAL_COLUMN_LIST]
+    total_quarterly_offense_df = add_summary_crime_columns(total_quarterly_offense_df)
 
     return total_quarterly_offense_df
 
